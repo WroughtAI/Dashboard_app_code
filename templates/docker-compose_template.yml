@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  # Your service
+  your-service:
+    build:
+      context: ./your-service
+      dockerfile: Dockerfile
+    container_name: your-service
+    ports:
+      - "8000:8000"  # Change to your service port
+    environment:
+      - LOG_LEVEL=INFO
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    networks:
+      - service-network
+    volumes:
+      - ./your-service:/app  # For development (optional)
+    restart: unless-stopped
+
+  # Scaffold service (the main framework service)
+  scaffold:
+    image: scaffold-framework:latest  # Change to your scaffold image
+    container_name: scaffold
+    ports:
+      - "5000:5000"  # Change to your scaffold port
+    environment:
+      - YOUR_SERVICE_URL=http://your-service:8000
+    depends_on:
+      - your-service
+    networks:
+      - service-network
+    restart: unless-stopped
+
+networks:
+  service-network:
+    driver: bridge 
