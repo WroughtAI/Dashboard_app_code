@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  # Vector database for bias report app
+  qdrant:
+    image: qdrant/qdrant:v1.7.0
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - app_network
+
+  # Bias Report App services
+  biasdetector:
+    build: 
+      context: ./agent-shell-clean/src/packages/biasdetector
+    ports:
+      - "8001:8001"
+    environment:
+      - QDRANT_URL=http://qdrant:6333
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8001
+    networks:
+      - app_network
+    depends_on:
+      - qdrant
+
+  dbias:
+    build: 
+      context: ./agent-shell-clean/src/packages/dbias
+    ports:
+      - "8002:8002"
+    environment:
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8002
+    networks:
+      - app_network
+
+  fairlens:
+    build: 
+      context: ./agent-shell-clean/src/packages/fairlens
+    ports:
+      - "8003:8003"
+    environment:
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8003
+    networks:
+      - app_network
+
+  aggregator:
+    build: 
+      context: ./agent-shell-clean/src/packages/aggregator
+    ports:
+      - "8000:8000"
+    environment:
+      - BIASDETECTOR_URL=http://biasdetector:8001
+      - DBIAS_URL=http://dbias:8002
+      - FAIRLENS_URL=http://fairlens:8003
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8000
+    networks:
+      - app_network
+    depends_on:
+      - biasdetector
+      - dbias
+      - fairlens
+
+  # Agent Shell services could be added here
+  # agent-shell:
+  #   build: agent-shell-clean
+  #   depends_on:
+  #     - biasdetector
+  #     - dbias
+  #     - fairlens
+  #     - aggregator
+  #   environment:
+  #     - BIASDETECTOR_SERVICE_URL=http://biasdetector:8001
+  #     - DBIAS_SERVICE_URL=http://dbias:8002
+  #     - FAIRLENS_SERVICE_URL=http://fairlens:8003
+  #     - AGGREGATOR_SERVICE_URL=http://aggregator:8000
+  #   networks:
+  #     - app_network
+
+networks:
+  app_network:
+    driver: bridge
+
+volumes:
+  qdrant_data:
+    driver: local 
