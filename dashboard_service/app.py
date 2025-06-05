@@ -232,7 +232,7 @@ async def health_check() -> Dict[str, Any]:
     """Health check endpoint required by scaffold framework."""
     return {
         "status": "healthy",
-        "service": "dashboard-service",
+        "service": "moa-agent-reporting-dashboard",
         "version": "1.0.0",
         "timestamp": datetime.utcnow().isoformat()
     }
@@ -270,6 +270,7 @@ async def dashboard_root():
             .header p { margin: 0; opacity: 0.9; font-size: 1.1em; }
             
             .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; margin-bottom: 30px; }
+            .bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
             .card { 
                 background: rgba(255,255,255,0.95); 
                 padding: 25px; 
@@ -285,6 +286,27 @@ async def dashboard_root():
             .danger { background: linear-gradient(45deg, #f44336, #d32f2f); color: white; }
             .info { background: linear-gradient(45deg, #2196F3, #1976D2); color: white; }
             
+            .agent-box {
+                display: inline-block;
+                margin: 8px;
+                padding: 15px 20px;
+                border-radius: 12px;
+                color: white;
+                font-weight: 600;
+                text-align: center;
+                min-width: 120px;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+                transition: all 0.3s ease;
+            }
+            .agent-box:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.3); }
+            .agent-healthy { background: linear-gradient(45deg, #4CAF50, #66BB6A); }
+            .agent-degraded { background: linear-gradient(45deg, #FF9800, #FFB74D); }
+            .agent-failed { background: linear-gradient(45deg, #F44336, #EF5350); }
+            .agent-inactive { background: linear-gradient(45deg, #9E9E9E, #BDBDBD); }
+            
+            .agent-name { font-size: 0.9em; margin-bottom: 5px; }
+            .agent-status { font-size: 0.75em; opacity: 0.9; text-transform: uppercase; }
+            
             .metric { text-align: center; padding: 15px; }
             .metric-value { 
                 font-size: 3em; 
@@ -295,6 +317,44 @@ async def dashboard_root():
                 background-clip: text;
             }
             .metric-label { color: #666; margin-top: 5px; font-size: 1.1em; }
+            
+            .agent-metrics {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .agent-metric-line {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 10px 15px;
+                background: linear-gradient(45deg, #f8f9fa, #e9ecef);
+                border-radius: 8px;
+                border-left: 4px solid #667eea;
+            }
+            
+            .agent-metric-name {
+                font-weight: 600;
+                color: #495057;
+            }
+            
+            .agent-metric-info {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-end;
+                font-size: 0.85em;
+            }
+            
+            .agent-metric-status {
+                font-weight: 600;
+                text-transform: uppercase;
+            }
+            
+            .agent-metric-messages {
+                color: #666;
+                margin-top: 2px;
+            }
             
             .endpoint-list { list-style: none; padding: 0; }
             .endpoint-list li { 
@@ -404,13 +464,21 @@ async def dashboard_root():
             
             @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
             .fade-in { animation: fadeIn 0.5s ease-out; }
+            
+            .separator {
+                width: 100%;
+                height: 2px;
+                background: linear-gradient(90deg, transparent, #e0e0e0, transparent);
+                margin: 30px 0;
+                border-radius: 1px;
+            }
         </style>
     </head>
     <body>
         <div class="container">
             <div class="header">
                 <h1>🚀 Agent Dashboard Service</h1>
-                <p>Real-time monitoring and control for agent scaffolding system</p>
+                <p>Modular Offline Agent Real-time monitoring Dashboard</p>
                 <div style="margin-top: 15px;">
                     <button class="refresh-btn" onclick="refreshMessages()">🔄 Refresh Messages</button>
                     <button class="refresh-btn" onclick="clearMessages()">🗑️ Clear Display</button>
@@ -419,22 +487,39 @@ async def dashboard_root():
             
             <div class="grid">
                 <div class="card">
-                    <h2>🏥 Service Health</h2>
-                    <div class="status healthy">
-                        <h3>Status: Online & Ready</h3>
-                        <p>Dashboard service is running and ready to receive agent messages.</p>
+                    <h2>🏥 Agent Health Status</h2>
+                    <div id="agentHealthContainer">
+                        <div class="loading">Loading agent status...</div>
                     </div>
                 </div>
                 
                 <div class="card">
-                    <h2>📊 Live Metrics</h2>
-                    <div class="metric">
-                        <div class="metric-value" id="agentCount">0</div>
-                        <div class="metric-label">Active Agents</div>
+                    <h2>📊 Live Agent Metrics</h2>
+                    <div id="agentMetricsContainer" class="agent-metrics">
+                        <div class="loading">Loading agent metrics...</div>
                     </div>
-                    <div class="metric">
-                        <div class="metric-value" id="messageCount">0</div>
-                        <div class="metric-label">Recent Messages</div>
+                </div>
+            </div>
+            
+            <div class="messages-section">
+                <h2>📨 Recent Agent Messages</h2>
+                <p>Live feed of messages from agents - updates automatically every 5 seconds</p>
+                <div class="message-container" id="messagesContainer">
+                    <div class="loading">Loading messages...</div>
+                </div>
+            </div>
+            
+            <div class="separator"></div>
+            
+            <div class="bottom-grid">
+                <div class="card">
+                    <h2>🎯 Message Types</h2>
+                    <div class="status info">
+                        <strong>📋 Compliance:</strong> Domain-specific compliance results<br><br>
+                        <strong>💚 Status:</strong> System and agent health information<br><br>
+                        <strong>⚡ Throughput:</strong> Performance metrics and KPIs<br><br>
+                        <strong>🚨 Alerts:</strong> Critical notifications and warnings<br><br>
+                        <strong>📝 Informational:</strong> General updates and logs
                     </div>
                 </div>
                 
@@ -449,25 +534,6 @@ async def dashboard_root():
                         <li><a href="/compliance/summary" target="_blank">✅ Compliance Summary</a></li>
                     </ul>
                 </div>
-                
-                <div class="card">
-                    <h2>🎯 Message Types</h2>
-                    <div class="status info">
-                        <strong>📋 Compliance:</strong> Domain-specific compliance results<br><br>
-                        <strong>💚 Status:</strong> System and agent health information<br><br>
-                        <strong>⚡ Throughput:</strong> Performance metrics and KPIs<br><br>
-                        <strong>🚨 Alerts:</strong> Critical notifications and warnings<br><br>
-                        <strong>📝 Informational:</strong> General updates and logs
-                    </div>
-                </div>
-            </div>
-            
-            <div class="messages-section">
-                <h2>📨 Recent Agent Messages</h2>
-                <p>Live feed of messages from agents - updates automatically every 5 seconds</p>
-                <div class="message-container" id="messagesContainer">
-                    <div class="loading">Loading messages...</div>
-                </div>
             </div>
         </div>
         
@@ -477,6 +543,7 @@ async def dashboard_root():
         
         <script>
             let lastMessageCount = 0;
+            let agentHealthData = {};
             
             function formatTimestamp(timestamp) {
                 const date = new Date(timestamp);
@@ -492,6 +559,85 @@ async def dashboard_root():
                     return 'severity-' + message.severity.toLowerCase();
                 }
                 return '';
+            }
+            
+            function getAgentHealthClass(agent, messages) {
+                // Determine agent health based on recent messages
+                if (agent.status === 'inactive') return 'agent-inactive';
+                
+                // Check recent messages for this agent
+                const agentMessages = messages.filter(m => m.source_agent === agent.name);
+                if (agentMessages.length === 0) return 'agent-healthy';
+                
+                // Check for alerts or failed status messages
+                const hasAlerts = agentMessages.some(m => m.type === 'alert' && ['high', 'critical'].includes(m.severity));
+                const hasFailures = agentMessages.some(m => m.type === 'status' && ['failed', 'degraded'].includes(m.health_status));
+                
+                if (hasAlerts || hasFailures) return 'agent-failed';
+                
+                // Check for warnings
+                const hasWarnings = agentMessages.some(m => 
+                    (m.type === 'alert' && m.severity === 'medium') ||
+                    (m.type === 'status' && m.health_status === 'degraded')
+                );
+                
+                if (hasWarnings) return 'agent-degraded';
+                
+                return 'agent-healthy';
+            }
+            
+            function updateAgentHealth(agents, messages) {
+                const container = document.getElementById('agentHealthContainer');
+                
+                if (!agents || agents.length === 0) {
+                    container.innerHTML = '<div class="loading">No agents detected</div>';
+                    return;
+                }
+                
+                container.innerHTML = '';
+                agents.forEach(agent => {
+                    const healthClass = getAgentHealthClass(agent, messages);
+                    const statusText = agent.status === 'active' ? 'Online' : 'Offline';
+                    
+                    const agentBox = document.createElement('div');
+                    agentBox.className = `agent-box ${healthClass}`;
+                    agentBox.innerHTML = `
+                        <div class="agent-name">${agent.name}</div>
+                        <div class="agent-status">${statusText}</div>
+                    `;
+                    
+                    container.appendChild(agentBox);
+                });
+            }
+            
+            function updateAgentMetrics(agents, messages) {
+                const container = document.getElementById('agentMetricsContainer');
+                
+                if (!agents || agents.length === 0) {
+                    container.innerHTML = '<div class="loading">No agent metrics available</div>';
+                    return;
+                }
+                
+                container.innerHTML = '';
+                agents.forEach(agent => {
+                    const agentMessages = messages.filter(m => m.source_agent === agent.name);
+                    const messageCount = agent.message_count || agentMessages.length || 0;
+                    
+                    const statusText = agent.status === 'active' ? 'Online' : 'Offline';
+                    const statusClass = agent.status === 'active' ? 'healthy' : 'warning';
+                    
+                    const metricLine = document.createElement('div');
+                    metricLine.className = 'agent-metric-line';
+                    metricLine.innerHTML = `
+                        <div class="agent-metric-name">${agent.name}</div>
+                        <div class="agent-metric-info">
+                            <div class="agent-metric-status ${statusClass}">${statusText}</div>
+                            <div class="agent-metric-messages">${messageCount} messages</div>
+                        </div>
+                    `;
+                    
+                    container.appendChild(metricLine);
+                });
             }
             
             function createMessageElement(message) {
@@ -527,10 +673,16 @@ async def dashboard_root():
                     const agentData = await agentResponse.json();
                     const messageData = await messageResponse.json();
                     
-                    document.getElementById('agentCount').textContent = agentData.results?.count || 0;
-                    document.getElementById('messageCount').textContent = messageData.results?.length || 0;
+                    const agents = agentData.results?.agents || [];
+                    const messages = messageData.results || [];
                     
-                    return messageData.results || [];
+                    // Update agent health visualization
+                    updateAgentHealth(agents, messages);
+                    
+                    // Update agent metrics
+                    updateAgentMetrics(agents, messages);
+                    
+                    return messages;
                 } catch (error) {
                     console.error('Error updating metrics:', error);
                     return [];
@@ -613,7 +765,7 @@ async def receive_compliance_message(message: ComplianceMessage):
         
         return MessageResponse(
             status="success",
-            service="dashboard-service",
+            service="moa-agent-reporting-dashboard",
             message_id=message_id,
             timestamp=datetime.utcnow()
         )
@@ -632,7 +784,7 @@ async def receive_status_message(message: StatusMessage):
         
         return MessageResponse(
             status="success",
-            service="dashboard-service",
+            service="moa-agent-reporting-dashboard",
             message_id=message_id,
             timestamp=datetime.utcnow()
         )
@@ -651,7 +803,7 @@ async def receive_throughput_message(message: ThroughputMessage):
         
         return MessageResponse(
             status="success",
-            service="dashboard-service",
+            service="moa-agent-reporting-dashboard",
             message_id=message_id,
             timestamp=datetime.utcnow()
         )
@@ -670,7 +822,7 @@ async def receive_alert_message(message: AlertMessage):
         
         return MessageResponse(
             status="success",
-            service="dashboard-service",
+            service="moa-agent-reporting-dashboard",
             message_id=message_id,
             timestamp=datetime.utcnow()
         )
@@ -689,7 +841,7 @@ async def receive_informational_message(message: InformationalMessage):
         
         return MessageResponse(
             status="success",
-            service="dashboard-service",
+            service="moa-agent-reporting-dashboard",
             message_id=message_id,
             timestamp=datetime.utcnow()
         )
@@ -705,7 +857,7 @@ async def get_recent_messages(limit: int = 50):
         recent = dashboard_data["recent_messages"][:limit]
         return {
             "status": "success",
-            "service": "dashboard-service",
+            "service": "moa-agent-reporting-dashboard",
             "results": recent,
             "total": len(recent),
             "timestamp": datetime.utcnow().isoformat()
@@ -714,7 +866,7 @@ async def get_recent_messages(limit: int = 50):
         logger.error(f"Error getting recent messages: {e}")
         return {
             "status": "error",
-            "service": "dashboard-service",
+            "service": "moa-agent-reporting-dashboard",
             "error": str(e)
         }
 
@@ -731,7 +883,7 @@ async def get_active_alerts():
         
         return {
             "status": "success",
-            "service": "dashboard-service",
+            "service": "moa-agent-reporting-dashboard",
             "results": active_alerts,
             "total": len(active_alerts),
             "timestamp": datetime.utcnow().isoformat()
@@ -740,7 +892,7 @@ async def get_active_alerts():
         logger.error(f"Error getting active alerts: {e}")
         return {
             "status": "error",
-            "service": "dashboard-service",
+            "service": "moa-agent-reporting-dashboard",
             "error": str(e)
         }
 
@@ -751,7 +903,7 @@ async def get_messages_by_type(message_type: MessageType, limit: int = 100):
         messages = dashboard_data["messages"].get(message_type, [])[-limit:]
         return {
             "status": "success",
-            "service": "dashboard-service",
+            "service": "moa-agent-reporting-dashboard",
             "results": list(reversed(messages)),  # Most recent first
             "total": len(messages),
             "message_type": message_type,
@@ -761,7 +913,7 @@ async def get_messages_by_type(message_type: MessageType, limit: int = 100):
         logger.error(f"Error getting {message_type} messages: {e}")
         return {
             "status": "error",
-            "service": "dashboard-service",
+            "service": "moa-agent-reporting-dashboard",
             "error": str(e)
         }
 
@@ -789,7 +941,7 @@ async def get_agent_status():
         
         return {
             "status": "success",
-            "service": "dashboard-service",
+            "service": "moa-agent-reporting-dashboard",
             "results": {
                 "count": len(agents),
                 "agents": agents,
@@ -801,7 +953,7 @@ async def get_agent_status():
         logger.exception("Failed to get agent status")
         return {
             "status": "error",
-            "service": "dashboard-service",
+            "service": "moa-agent-reporting-dashboard",
             "error": str(e)
         }
 
@@ -815,7 +967,7 @@ async def get_llm_usage():
         stats = dashboard_data["llm_stats"]
         return {
             "status": "success",
-            "service": "dashboard-service",
+            "service": "moa-agent-reporting-dashboard",
             "results": {
                 "total_requests": stats["total_requests"],
                 "success_rate": stats["success_rate"],
@@ -827,7 +979,7 @@ async def get_llm_usage():
         logger.exception("Failed to get LLM usage")
         return {
             "status": "error",
-            "service": "dashboard-service",
+            "service": "moa-agent-reporting-dashboard",
             "error": str(e)
         }
 
@@ -844,7 +996,7 @@ async def get_vector_status():
         
         return {
             "status": "success",
-            "service": "dashboard-service",
+            "service": "moa-agent-reporting-dashboard",
             "results": {
                 "collections": len(collections),
                 "total_vectors": total_vectors,
@@ -857,7 +1009,7 @@ async def get_vector_status():
         logger.exception("Failed to get vector store status")
         return {
             "status": "error",
-            "service": "dashboard-service",
+            "service": "moa-agent-reporting-dashboard",
             "error": str(e)
         }
 
@@ -879,7 +1031,7 @@ async def get_recent_activity():
         dashboard_data["activities"] = activities
         return {
             "status": "success",
-            "service": "dashboard-service",
+            "service": "moa-agent-reporting-dashboard",
             "results": {
                 "activities": activities
             }
@@ -888,7 +1040,7 @@ async def get_recent_activity():
         logger.exception("Failed to get recent activity")
         return {
             "status": "error",
-            "service": "dashboard-service",
+            "service": "moa-agent-reporting-dashboard",
             "error": str(e)
         }
 
@@ -909,7 +1061,7 @@ async def get_llm_history():
         ]
         return {
             "status": "success",
-            "service": "dashboard-service",
+            "service": "moa-agent-reporting-dashboard",
             "results": {
                 "history": history
             }
@@ -918,7 +1070,7 @@ async def get_llm_history():
         logger.exception("Failed to get LLM history")
         return {
             "status": "error",
-            "service": "dashboard-service",
+            "service": "moa-agent-reporting-dashboard",
             "error": str(e)
         }
 
@@ -933,7 +1085,7 @@ async def get_vector_collections():
         ]
         return {
             "status": "success",
-            "service": "dashboard-service",
+            "service": "moa-agent-reporting-dashboard",
             "results": {
                 "collections": collections
             }
@@ -942,7 +1094,7 @@ async def get_vector_collections():
         logger.exception("Failed to get vector collections")
         return {
             "status": "error",
-            "service": "dashboard-service",
+            "service": "moa-agent-reporting-dashboard",
             "error": str(e)
         }
 
@@ -964,7 +1116,7 @@ async def search_vectors(query: str):
         ]
         return {
             "status": "success",
-            "service": "dashboard-service",
+            "service": "moa-agent-reporting-dashboard",
             "results": {
                 "query": query,
                 "results": results
@@ -974,7 +1126,7 @@ async def search_vectors(query: str):
         logger.exception("Failed to search vectors")
         return {
             "status": "error",
-            "service": "dashboard-service",
+            "service": "moa-agent-reporting-dashboard",
             "error": str(e)
         }
 
@@ -984,7 +1136,7 @@ async def get_package_status():
     try:
         packages = [
             {
-                "name": "dashboard-service",
+                "name": "moa-agent-reporting-dashboard",
                 "status": "healthy",
                 "version": "1.0.0",
                 "last_check": datetime.utcnow().isoformat()
@@ -1004,7 +1156,7 @@ async def get_package_status():
         ]
         return {
             "status": "success",
-            "service": "dashboard-service",
+            "service": "moa-agent-reporting-dashboard",
             "results": {
                 "packages": packages
             }
@@ -1013,7 +1165,7 @@ async def get_package_status():
         logger.exception("Failed to get package status")
         return {
             "status": "error",
-            "service": "dashboard-service",
+            "service": "moa-agent-reporting-dashboard",
             "error": str(e)
         }
 
@@ -1068,7 +1220,7 @@ async def upload_file(
                 
             return {
                 "status": "success",
-                "service": "dashboard-service",
+                "service": "moa-agent-reporting-dashboard",
                 "filename": file.filename,
                 "summary": summary
             }
@@ -1077,7 +1229,7 @@ async def upload_file(
             logger.error(f"Error processing file: {e}")
             return {
                 "status": "error",
-                "service": "dashboard-service",
+                "service": "moa-agent-reporting-dashboard",
                 "error": f"Error processing file: {str(e)}"
             }
         finally:
@@ -1087,14 +1239,14 @@ async def upload_file(
     except json.JSONDecodeError:
         return {
             "status": "error",
-            "service": "dashboard-service",
+            "service": "moa-agent-reporting-dashboard",
             "error": "Invalid options format"
         }
     except Exception as e:
         logger.error(f"Error processing file upload: {e}")
         return {
             "status": "error",
-            "service": "dashboard-service",
+            "service": "moa-agent-reporting-dashboard",
             "error": str(e)
         }
 
@@ -1124,7 +1276,7 @@ async def get_compliance_test_results(limit: int = 100):
         
         return {
             "status": "success",
-            "service": "dashboard-service",
+            "service": "moa-agent-reporting-dashboard",
             "results": {
                 "results": all_results,
                 "timestamp": datetime.utcnow().isoformat()
@@ -1134,7 +1286,7 @@ async def get_compliance_test_results(limit: int = 100):
         logger.exception("Failed to get compliance test results")
         return {
             "status": "error",
-            "service": "dashboard-service",
+            "service": "moa-agent-reporting-dashboard",
             "error": str(e)
         }
 
@@ -1187,7 +1339,7 @@ async def get_compliance_summary():
         
         return {
             "status": "success",
-            "service": "dashboard-service",
+            "service": "moa-agent-reporting-dashboard",
             "results": summary
         }
         
@@ -1195,7 +1347,7 @@ async def get_compliance_summary():
         logger.exception("Failed to get compliance summary")
         return {
             "status": "error",
-            "service": "dashboard-service",
+            "service": "moa-agent-reporting-dashboard",
             "error": str(e)
         }
 

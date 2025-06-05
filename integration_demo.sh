@@ -18,7 +18,7 @@ echo ""
 # Step 1: Build the dashboard service
 echo -e "${YELLOW}Step 1: Building Dashboard Service Docker Image${NC}"
 cd dashboard_service
-docker build -t dashboard-service . --quiet
+docker build -t moa-agent-reporting-dashboard . --quiet
 echo -e "${GREEN}✅ Docker image built successfully${NC}"
 echo ""
 
@@ -27,7 +27,7 @@ echo -e "${YELLOW}Step 2: Testing Dashboard Service${NC}"
 echo "Starting service on port 8000..."
 
 # Start service in background
-docker run --rm -d -p 8000:8000 --name dashboard-test dashboard-service
+docker run --rm -d -p 8000:8000 --name dashboard-test moa-agent-reporting-dashboard
 
 # Wait for service to be ready
 echo "Waiting for service to be ready..."
@@ -52,7 +52,7 @@ echo "To integrate this service with the scaffold framework, you would run:"
 echo ""
 echo -e "${BLUE}cd scripts${NC}"
 echo -e "${BLUE}./integration_setup.sh \\${NC}"
-echo -e "${BLUE}  --service-name=dashboard-service \\${NC}"
+echo -e "${BLUE}  --service-name=moa-agent-reporting-dashboard \\${NC}"
 echo -e "${BLUE}  --service-port=8000 \\${NC}"
 echo -e "${BLUE}  --contract=../dashboard_service_contract.py${NC}"
 echo ""

@@ -278,7 +278,7 @@ class DashboardServiceContract(BaseRESTAdapter):
             
             return {
                 "status": "success",
-                "service": "dashboard-service",
+                "service": "moa-agent-reporting-dashboard",
                 "results": {
                     "agent_status": agent_status.get("results", {}),
                     "llm_usage": llm_usage.get("results", {}),
@@ -291,7 +291,7 @@ class DashboardServiceContract(BaseRESTAdapter):
             self.logger.error(f"Failed to get comprehensive dashboard status: {e}")
             return {
                 "status": "error",
-                "service": "dashboard-service",
+                "service": "moa-agent-reporting-dashboard",
                 "error": str(e)
             }
 

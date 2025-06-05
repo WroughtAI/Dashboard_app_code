@@ -88,12 +88,12 @@ Each message includes:
 1. **Build the container**:
    ```bash
    cd dashboard_service
-   docker build -t dashboard-service .
+   docker build -t moa-agent-reporting-dashboard .
    ```
 
 2. **Run the container**:
    ```bash
-   docker run -d -p 8000:8000 --name dashboard-service dashboard-service
+   docker run -d -p 8000:8000 --name moa-agent-reporting-dashboard moa-agent-reporting-dashboard
    ```
 
 ## 📊 API Endpoints
@@ -209,7 +209,7 @@ The service is designed for integration with the agent scaffolding framework:
 
 ```bash
 ./integration_setup.sh \
-  --service-name=dashboard-service \
+  --service-name=moa-agent-reporting-dashboard \
   --service-port=8000 \
   --contract=../dashboard_service_contract.py
 ```

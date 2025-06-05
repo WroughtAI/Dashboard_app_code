@@ -91,7 +91,7 @@ Created `test_agent_messages.py` demonstrating:
 ### Scaffold Integration
 ```bash
 ./integration_setup.sh \
-  --service-name=dashboard-service \
+  --service-name=moa-agent-reporting-dashboard \
   --service-port=8000 \
   --contract=../dashboard_service_contract.py
 ```

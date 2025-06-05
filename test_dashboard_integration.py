@@ -88,7 +88,7 @@ def test_file_upload(base_url: str) -> bool:
         # Create a test JSON file
         test_data = {
             "test": True,
-            "integration": "dashboard-service",
+            "integration": "moa-agent-reporting-dashboard",
             "timestamp": time.time()
         }
         
@@ -205,7 +205,7 @@ def main():
         print("\nTo integrate with scaffold framework, run:")
         print("cd scripts")
         print("./integration_setup.sh \\")
-        print("  --service-name=dashboard-service \\")
+        print("  --service-name=moa-agent-reporting-dashboard \\")
         print("  --service-port=8000 \\")
         print("  --contract=../dashboard_service_contract.py")
         sys.exit(0)
